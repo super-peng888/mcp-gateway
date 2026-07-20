@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+target/
+dist/
+dist-ssr/
+.vite/
+
+# Runtime data (H2 database)
+data/
+*.mv.db
+*.trace.db
+
+# Environment / secrets
+.env
+.env.*
+*.local
+
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db

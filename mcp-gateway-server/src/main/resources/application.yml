@@ -1,0 +1,44 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: mcp-gateway
+  datasource:
+    url: jdbc:h2:file:./data/mcp-gateway;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.deepseek.autoconfigure.DeepSeekChatAutoConfiguration
+      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
+  ai:
+    mcp:
+      server:
+        name: mcp-gateway
+        version: 1.0.0
+        type: SYNC
+        instructions: "REST to MCP gateway"
+        sse-endpoint: /mcp/sse
+        sse-message-endpoint: /mcp/messages
+    deepseek:
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-v4-flash
+
+logging:
+  level:
+    com.aura.mcp.gateway: debug
