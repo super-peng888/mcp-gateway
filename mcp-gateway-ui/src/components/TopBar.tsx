@@ -20,7 +20,7 @@ export function TopBar() {
 
   return (
     <header
-      className="sticky top-0 z-40 flex w-full items-center justify-end gap-3 border-b border-white/40 bg-white/50 px-6 backdrop-blur-2xl"
+      className="glass-bar sticky top-0 z-40 flex w-full items-center justify-end gap-3 border-b border-white/40 px-6"
       style={{ height: "var(--topbar-height)" }}
     >
       {/* Right actions */}

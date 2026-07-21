@@ -34,7 +34,7 @@ export function Breadcrumb() {
   const crumbs = resolveCrumbs(pathname)
 
   return (
-    <nav className="flex items-center gap-1.5 border-b border-white/40 bg-white/40 px-6 py-2 text-sm backdrop-blur-xl">
+    <nav className="glass-bar flex items-center gap-1.5 border-b border-white/40 px-6 py-2 text-sm">
       {crumbs.map((crumb, idx) => (
         <span key={crumb.path + idx} className="flex items-center gap-1.5">
           {idx > 0 && <ChevronRight className="size-3.5 text-slate-400" />}

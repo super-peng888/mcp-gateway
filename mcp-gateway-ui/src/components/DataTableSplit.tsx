@@ -15,39 +15,11 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { SearchForm } from "@/components/SearchForm"
+import type {
+  ContextMenuItemConfig,
+  DataTableProps,
+} from "@/components/DataTable"
 import type { TableInstance, TableBindValues } from "@/hooks/useTable"
-
-export interface ContextMenuItemConfig<T> {
-  key: string
-  label?: React.ReactNode
-  icon?: React.ReactNode
-  disabled?: boolean
-  separator?: boolean
-  onClick?: (record: T) => void
-}
-
-export interface ToolbarAction {
-  key: string
-  label: string
-  icon?: React.ReactNode
-  variant?: "default" | "ghost" | "destructive"
-  disabled?: boolean
-  onClick: () => void
-}
-
-export interface DataTableSlots {
-  leftToolBar?: React.ReactNode
-  rightToolBar?: React.ReactNode
-}
-
-export interface DataTableProps<T> {
-  register?: (instance: TableInstance<T>) => void
-  className?: string
-  title?: React.ReactNode
-  titleExtra?: React.ReactNode
-  toolbar?: React.ReactNode
-  slots?: DataTableSlots
-}
 
 interface DataTableContextValue<T> {
   getRecord: (rowKey: string) => T | undefined
@@ -122,7 +94,11 @@ const defaultBindValues: TableBindValues<never> = {
   onRow: undefined,
 }
 
-export function DataTable<T extends object>({
+/**
+ * DataTable 变体：搜索表单与表格主体分离为两张独立的玻璃卡片。
+ * 结构与 DataTable 一致，仅布局不同。
+ */
+export function DataTableSplit<T extends object>({
   register,
   className = "",
   title,
@@ -225,20 +201,14 @@ export function DataTable<T extends object>({
   const hasToolbarActions = bindValues.toolbarActions.length > 0
   const hasExtra = bindValues.extraActions && bindValues.extraActions.length > 0
   const hasSearchForm = bindValues.searchFormSchema.length > 0
-  const hasLeftContent =
-    hasToolbarActions ||
-    Boolean(slots?.leftToolBar)
+  const hasLeftContent = hasToolbarActions || Boolean(slots?.leftToolBar)
   const hasRightContent =
-    hasExtra ||
-    Boolean(toolbar) ||
-    Boolean(slots?.rightToolBar)
+    hasExtra || Boolean(toolbar) || Boolean(slots?.rightToolBar)
   const showHeader =
     hasLeftContent || hasRightContent || Boolean(title) || Boolean(titleExtra)
 
   const leftToolbar = (
-    <div className="flex flex-wrap items-center gap-2">
-      {slots?.leftToolBar}
-    </div>
+    <div className="flex flex-wrap items-center gap-2">{slots?.leftToolBar}</div>
   )
 
   const rightToolbar = (
@@ -252,9 +222,7 @@ export function DataTable<T extends object>({
       {(title || titleExtra) && (
         <div className="flex items-center gap-3">
           {title && (
-            <h3 className="text-base font-semibold text-slate-900">
-              {title}
-            </h3>
+            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
           )}
           {titleExtra}
         </div>
@@ -268,21 +236,24 @@ export function DataTable<T extends object>({
     <DataTableContext.Provider
       value={contextValue as DataTableContextValue<unknown>}
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+        {/* 搜索卡片：独立的玻璃容器 */}
+        {hasSearchForm && (
+          <div className="glass shrink-0 rounded-2xl px-4 py-3">
+            <SearchForm
+              inline
+              searchFormSchema={bindValues.searchFormSchema}
+              values={bindValues.searchValues}
+              onChange={bindValues.onSearchValuesChange}
+              onSearch={bindValues.onSearch}
+            />
+          </div>
+        )}
+
+        {/* 表格主体卡片 */}
         <div
           className={`glass flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl ${className}`}
         >
-          {hasSearchForm && (
-            <div className="shrink-0 border-b border-white/40 px-4 py-3">
-              <SearchForm
-                inline
-                searchFormSchema={bindValues.searchFormSchema}
-                values={bindValues.searchValues}
-                onChange={bindValues.onSearchValuesChange}
-                onSearch={bindValues.onSearch}
-              />
-            </div>
-          )}
           {showHeader && (
             <div className="flex flex-col gap-2 border-b border-white/40 px-4 py-3">
               {headerContent}

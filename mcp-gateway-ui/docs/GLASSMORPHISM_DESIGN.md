@@ -56,10 +56,10 @@ body {
 
 ```tsx
 <div className="pointer-events-none fixed inset-0 overflow-hidden">
-  <div className="absolute -left-40 -top-40 size-96 rounded-full bg-blue-400/20 blur-3xl" />
-  <div className="absolute -right-40 top-1/4 size-96 rounded-full bg-violet-400/20 blur-3xl" />
-  <div className="absolute -bottom-40 left-1/3 size-96 rounded-full bg-emerald-400/15 blur-3xl" />
-  <div className="absolute bottom-1/4 right-1/4 size-80 rounded-full bg-amber-400/15 blur-3xl" />
+  <div className="absolute -left-40 -top-40 size-[520px] rounded-full bg-blue-400/30 blur-[100px]" />
+  <div className="absolute -right-40 top-1/4 size-[480px] rounded-full bg-violet-400/25 blur-[100px]" />
+  <div className="absolute -bottom-40 left-1/3 size-[460px] rounded-full bg-cyan-300/20 blur-[100px]" />
+  <div className="absolute bottom-1/4 right-1/4 size-96 rounded-full bg-rose-300/15 blur-[100px]" />
 </div>
 ```
 
@@ -88,47 +88,54 @@ body {
 
 ### 基础玻璃卡片
 
+白色低透明对角渐变 + 大模糊，让背景光晕透出来。四边统一 1px 白色 30% 边框；轮廓感来自贴边阴影 + 收紧的扩散阴影（收缩量 ≥ 模糊半径一半，水平零溢出，圆角外无阴影，只向正下方投射）与玻璃和背景的明度差；顶部一道细受光。
+
 ```css
 .glass {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.45) 100%);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow:
-    0 8px 32px rgba(16, 24, 40, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    /* 贴边层勾轮廓 + 扩散层只向正下方投射（圆角外无阴影） */
+    0 2px 4px -1px rgba(16, 24, 40, 0.06),
+    0 10px 24px -12px rgba(16, 24, 40, 0.1),
+    /* 仅顶部一道细受光，保持边缘干净 */
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 ```
 
 ### 玻璃层级
 
-| 层级 | 类名 | 背景透明度 | 模糊半径 | 用途 |
+| 层级 | 类名 | 白色渐变 | 模糊半径 | 用途 |
 |------|------|-----------|---------|------|
-| 轻玻璃 | `.glass-sm` | 60% | 16px | 小徽章、标签 |
-| 标准玻璃 | `.glass` | 65% | 20px | 普通卡片、表格 |
-| 强玻璃 | `.glass-lg` | 70% | 24px | 弹窗、下拉菜单 |
-| 超重玻璃 | `.glass-xl` | 75% | 32px | 全局遮罩层 |
+| 轻玻璃 | `.glass-sm` | 55% → 40% | 24px | 小徽章、标签 |
+| 标准玻璃 | `.glass` | 60% → 45% | 36px | 普通卡片、表格 |
+| 强玻璃 | `.glass-lg` | 68% → 52% | 40px | 弹窗、下拉菜单 |
+| 超重玻璃 | `.glass-xl` | 74% → 58% | 48px | 全局遮罩层 |
+| 栏位玻璃 | `.glass-bar` | 55% 纯白 | 28px | 侧边栏、顶栏、面包屑（栏位自身描边方向各异，边框在 JSX 中单独声明） |
+
+> 所有层级均无边框、无侧边/底边效果；质感靠大模糊 +  saturate 提升呈现磨砂感；hover 只加深投影并上浮 1px。
 
 ### 彩色玻璃
 
-用于区分功能模块的彩色玻璃变体：
+用于区分功能模块的彩色玻璃变体（无边框）：
 
 ```css
-.glass-blue   { background: rgba(239, 246, 255, 0.65); border-color: rgba(191, 219, 254, 0.6); }
-.glass-violet { background: rgba(245, 243, 255, 0.65); border-color: rgba(221, 214, 254, 0.6); }
-.glass-green  { background: rgba(236, 253, 245, 0.65); border-color: rgba(167, 243, 208, 0.6); }
-.glass-amber  { background: rgba(255, 251, 235, 0.65); border-color: rgba(253, 230, 138, 0.6); }
+.glass-blue   { background: linear-gradient(135deg, rgba(239,246,255,0.6), rgba(239,246,255,0.42)); }
+.glass-violet { background: linear-gradient(135deg, rgba(245,243,255,0.6), rgba(245,243,255,0.42)); }
+.glass-green  { background: linear-gradient(135deg, rgba(236,253,245,0.6), rgba(236,253,245,0.42)); }
+.glass-amber  { background: linear-gradient(135deg, rgba(255,251,235,0.6), rgba(255,251,235,0.42)); }
 ```
 
 ### 玻璃 hover 效果
 
 ```css
 .glass-hover {
-  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 .glass-hover:hover {
-  box-shadow: 0 16px 48px rgba(16, 24, 40, 0.12);
-  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-glass-lg);
   transform: translateY(-1px);
 }
 ```
@@ -160,7 +167,7 @@ body {
 ### 侧边栏
 
 ```tsx
-<aside className="fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/40 bg-white/60 px-3 py-5 backdrop-blur-2xl">
+<aside className="glass-bar fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/40 px-3 py-5">
   {/* 品牌 */}
   <div className="flex items-center gap-3 px-2 pb-5">
     <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-[0_8px_24px_rgba(37,99,235,0.35)] ring-1 ring-white/30">
@@ -193,7 +200,7 @@ body {
 ### 顶栏
 
 ```tsx
-<header className="sticky top-0 z-40 flex items-center justify-end gap-3 border-b border-white/40 bg-white/50 px-6 backdrop-blur-2xl" style={{ height: 56 }}>
+<header className="glass-bar sticky top-0 z-40 flex items-center justify-end gap-3 border-b border-white/40 px-6" style={{ height: 56 }}>
   <button className="flex size-8 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-white/60 hover:text-slate-900 hover:shadow-sm">
     <Maximize className="size-4" />
   </button>
@@ -274,6 +281,12 @@ body {
 ### 弹窗（Ant Design Modal）
 
 ```css
+/* 遮罩：浅色磨砂替代默认暗灰，保持玻璃氛围连续 */
+.ant-modal-mask {
+  background: rgba(226, 232, 240, 0.55) !important;
+  backdrop-filter: blur(8px) saturate(150%);
+}
+
 .ant-modal-content {
   background: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(24px) saturate(200%);

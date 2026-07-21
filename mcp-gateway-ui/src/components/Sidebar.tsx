@@ -28,7 +28,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/40 bg-white/60 px-3 py-5 backdrop-blur-2xl"
+      className="glass-bar fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/40 px-3 py-5"
       style={{ width: "var(--sidebar-width)" }}
     >
       {/* Brand */}
@@ -71,7 +71,7 @@ export function Sidebar() {
       </nav>
 
       {/* MCP server status */}
-      <div className="mx-2 rounded-xl border border-white/50 bg-white/50 p-3 backdrop-blur-md">
+      <div className="mx-2 rounded-xl bg-white/50 p-3 shadow-[0_4px_12px_-6px_rgba(16,24,40,0.08)] backdrop-blur-md">
         <div className="flex items-center gap-2">
           <span className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />

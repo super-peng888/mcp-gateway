@@ -13,10 +13,10 @@ function AppLayout() {
     <div className="flex h-screen w-full overflow-hidden">
       {/* Animated background orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 size-96 rounded-full bg-blue-400/20 blur-3xl" />
-        <div className="absolute -right-40 top-1/4 size-96 rounded-full bg-violet-400/20 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 size-96 rounded-full bg-emerald-400/15 blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 size-80 rounded-full bg-amber-400/15 blur-3xl" />
+        <div className="absolute -left-40 -top-40 size-[520px] rounded-full bg-blue-400/30 blur-[100px]" />
+        <div className="absolute -right-40 top-1/4 size-[480px] rounded-full bg-violet-400/25 blur-[100px]" />
+        <div className="absolute -bottom-40 left-1/3 size-[460px] rounded-full bg-cyan-300/20 blur-[100px]" />
+        <div className="absolute bottom-1/4 right-1/4 size-96 rounded-full bg-rose-300/15 blur-[100px]" />
       </div>
 
       <Sidebar />

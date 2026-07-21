@@ -170,7 +170,7 @@ export function GatewayTest() {
         title="网关测试"
         description="与 AI 对话，验证 MCP 工具从对话到 REST 调用的完整链路"
       />
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/50 bg-white/60 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl">
+      <div className="glass flex min-h-0 flex-1 overflow-hidden rounded-2xl">
         {/* Conversations sidebar */}
         <div className="flex w-60 shrink-0 flex-col border-r border-white/40 bg-white/40 backdrop-blur-md">
           <div className="flex items-center justify-between px-4 pt-4 pb-3">

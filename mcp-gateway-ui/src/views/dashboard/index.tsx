@@ -89,7 +89,7 @@ export function Dashboard() {
         {stats.map((s) => (
           <div
             key={s.label}
-            className="flex items-center justify-between rounded-2xl border border-white/50 bg-white/60 p-5 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl transition-all hover:shadow-[0_12px_40px_rgba(16,24,40,0.12)] hover:-translate-y-0.5"
+            className="glass glass-hover flex items-center justify-between rounded-2xl p-5"
           >
             <div>
               <p className="text-sm font-medium text-slate-500">{s.label}</p>
@@ -108,7 +108,7 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Groups overview */}
-        <div className="flex flex-col rounded-2xl border border-white/50 bg-white/60 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl lg:col-span-2">
+        <div className="glass flex flex-col rounded-2xl lg:col-span-2">
           <div className="flex items-center justify-between border-b border-white/40 px-5 py-4">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold text-slate-900">
@@ -186,7 +186,7 @@ export function Dashboard() {
         {/* Right column */}
         <div className="flex flex-col gap-4">
           {/* MCP connection info */}
-          <div className="rounded-2xl border border-white/50 bg-white/60 p-5 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl">
+          <div className="glass rounded-2xl p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 ring-1 ring-white/50">
@@ -236,7 +236,7 @@ export function Dashboard() {
           </div>
 
           {/* Quick actions */}
-          <div className="rounded-2xl border border-white/50 bg-white/60 p-5 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl">
+          <div className="glass rounded-2xl p-5">
             <h3 className="text-base font-semibold text-slate-900">快捷操作</h3>
             <div className="mt-3 flex flex-col gap-1">
               {[
