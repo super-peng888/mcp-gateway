@@ -1,33 +1,24 @@
-import { listTools } from "@/api/registry"
-import type { GatewayTool } from "./gateway-tools.data"
+import { listTools } from "@/api/tools"
+import type { ToolView } from "@/api/types"
 
 export async function fetchGatewayTools({
   search,
   sorter,
 }: {
-  search: { toolName: string; groupName: string }
+  search: { toolName: string; serverName: string }
   sorter: { field: string; order: "ascend" | "descend" | null }
 }) {
   const res = await listTools()
-  let tools: GatewayTool[] = res.data.map((tool) => ({
-    id: tool.endpointId,
-    toolName: tool.toolName,
-    endpointName: tool.endpointName,
-    method: tool.method,
-    path: tool.path,
-    description: tool.description,
-    groupName: tool.groupName,
-    baseUrl: tool.baseUrl,
-  }))
+  let tools: ToolView[] = res.data
 
   if (search.toolName) {
     tools = tools.filter((t) =>
-      t.toolName.toLowerCase().includes(search.toolName.toLowerCase())
+      t.name.toLowerCase().includes(search.toolName.toLowerCase())
     )
   }
-  if (search.groupName) {
+  if (search.serverName) {
     tools = tools.filter((t) =>
-      t.groupName.toLowerCase().includes(search.groupName.toLowerCase())
+      t.serverName.toLowerCase().includes(search.serverName.toLowerCase())
     )
   }
 
@@ -35,10 +26,10 @@ export async function fetchGatewayTools({
     const factor = sorter.order === "ascend" ? 1 : -1
     tools = [...tools].sort((a, b) => {
       const aVal = String(
-        (a as unknown as Record<string, string>)[sorter.field] ?? ""
+        (a as unknown as Record<string, unknown>)[sorter.field] ?? ""
       )
       const bVal = String(
-        (b as unknown as Record<string, string>)[sorter.field] ?? ""
+        (b as unknown as Record<string, unknown>)[sorter.field] ?? ""
       )
       return aVal.localeCompare(bVal) * factor
     })

@@ -27,8 +27,8 @@ createRoot(document.getElementById("root")!).render(
         },
         components: {
           Table: {
-            headerBg: "#f8fafc",
-            headerColor: "#6b7280",
+            headerBg: "transparent",
+            headerColor: "#475569",
             headerSplitColor: "#e3e7ef",
             rowHoverBg: "rgba(37, 99, 235, 0.04)",
             rowSelectedBg: "rgba(37, 99, 235, 0.08)",

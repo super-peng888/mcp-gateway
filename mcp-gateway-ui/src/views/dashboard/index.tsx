@@ -1,44 +1,41 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import {
   Activity,
   ArrowRight,
-  Braces,
-  Check,
-  Copy,
-  Library,
   Radio,
-  Upload,
+  Server,
   Wrench,
 } from "lucide-react"
 import { Button } from "antd"
-import { listGroups, listTools, type ApiGroup, type ToolView } from "@/api/registry"
+import { listServers } from "@/api/servers"
+import { listTools } from "@/api/tools"
+import type { McpServer, ToolView } from "@/api/types"
+import { CopyButton } from "@/components/CopyButton"
 import { EmptyState } from "@/components/EmptyState"
 import { PageContainer } from "@/components/PageContainer"
 import { PageHeader } from "@/components/PageHeader"
-
-const MCP_SSE_URL = "http://localhost:8082/mcp/sse"
+import { buildMcpEndpointUrl, transportLabel } from "@/lib/mcp"
 
 interface StatDef {
   label: string
   value: string | number
-  icon: typeof Library
+  icon: typeof Server
   tone: string
 }
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const [groups, setGroups] = useState<ApiGroup[]>([])
+  const [servers, setServers] = useState<McpServer[]>([])
   const [tools, setTools] = useState<ToolView[]>([])
   const [loading, setLoading] = useState(true)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([listGroups(), listTools()])
-      .then(([g, t]) => {
+    Promise.all([listServers(), listTools()])
+      .then(([s, t]) => {
         if (cancelled) return
-        setGroups(g.data)
+        setServers(s.data)
         setTools(t.data)
       })
       .catch(() => {})
@@ -50,38 +47,23 @@ export function Dashboard() {
     }
   }, [])
 
-  const endpointCount = useMemo(
-    () => groups.reduce((acc, g) => acc + g.endpoints.length, 0),
-    [groups]
-  )
-  const toolCountByGroup = useMemo(() => {
-    const map = new Map<string, number>()
-    tools.forEach((t) => map.set(t.groupName, (map.get(t.groupName) ?? 0) + 1))
-    return map
-  }, [tools])
-
   const stats: StatDef[] = [
-    { label: "接口分组", value: groups.length, icon: Library, tone: "bg-blue-500/10 text-blue-600" },
-    { label: "接口总数", value: endpointCount, icon: Braces, tone: "bg-emerald-500/10 text-emerald-600" },
-    { label: "MCP 工具", value: tools.length, icon: Wrench, tone: "bg-violet-500/10 text-violet-600" },
-    { label: "协议", value: "MCP / SSE", icon: Radio, tone: "bg-amber-500/10 text-amber-600" },
+    { label: "MCP 服务", value: servers.length, icon: Server, tone: "bg-blue-500/10 text-blue-600" },
+    {
+      label: "启用服务",
+      value: servers.filter((s) => s.enabled !== false).length,
+      icon: Radio,
+      tone: "bg-emerald-500/10 text-emerald-600",
+    },
+    { label: "工具总数", value: tools.length, icon: Wrench, tone: "bg-violet-500/10 text-violet-600" },
+    { label: "协议", value: "SSE / HTTP", icon: Activity, tone: "bg-amber-500/10 text-amber-600" },
   ]
-
-  const copySseUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(MCP_SSE_URL)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      /* clipboard unavailable */
-    }
-  }
 
   return (
     <PageContainer>
       <PageHeader
         title="工作台"
-        description="查看接口分组、MCP 工具状态与网关接入信息"
+        description="查看 MCP 服务、工具状态与网关接入信息"
       />
 
       {/* Stat cards */}
@@ -107,19 +89,19 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Groups overview */}
+        {/* Servers overview */}
         <div className="glass flex flex-col rounded-2xl lg:col-span-2">
           <div className="flex items-center justify-between border-b border-white/40 px-5 py-4">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold text-slate-900">
-                接口分组概览
+                MCP 服务概览
               </h3>
               <span className="rounded-full bg-white/60 px-2 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-white/50">
-                {groups.length}
+                {servers.length}
               </span>
             </div>
             <NavLink
-              to="/protocol-config"
+              to="/mcp-servers"
               className="flex items-center gap-1 text-sm font-semibold text-blue-600 transition-opacity hover:opacity-75"
             >
               查看全部 <ArrowRight className="size-3.5" />
@@ -127,58 +109,60 @@ export function Dashboard() {
           </div>
 
           <div className="flex-1">
-            {groups.length === 0 && !loading ? (
+            {servers.length === 0 && !loading ? (
               <EmptyState
-                icon={<Library className="size-6" />}
-                title="暂无接口分组"
-                description="导入 OpenAPI 文档后，接口分组将展示在这里"
+                icon={<Server className="size-6" />}
+                title="暂无 MCP 服务"
+                description="创建 MCP Server 后，其端点与工具将展示在这里"
                 action={
-                  <Button type="primary" onClick={() => navigate("/protocol-config")}>
-                    前往接口库
+                  <Button type="primary" onClick={() => navigate("/mcp-servers")}>
+                    前往 MCP 服务
                   </Button>
                 }
               />
             ) : (
-              groups.map((g, idx) => {
-                const toolCount = toolCountByGroup.get(g.name) ?? 0
-                return (
-                  <button
-                    key={g.id ?? g.name}
-                    onClick={() => navigate("/protocol-config")}
-                    className={`flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors hover:bg-white/40 ${
-                      idx > 0 ? "border-t border-white/40" : ""
-                    }`}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 ring-1 ring-white/50">
-                        <Library className="size-4" />
-                      </span>
-                      <div className="min-w-0">
+              servers.map((s, idx) => (
+                <button
+                  key={s.id ?? s.name}
+                  onClick={() => navigate("/mcp-servers")}
+                  className={`flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors hover:bg-white/40 ${
+                    idx > 0 ? "border-t border-white/40" : ""
+                  }`}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 ring-1 ring-white/50">
+                      <Server className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-semibold text-slate-900">
-                          {g.name}
+                          {s.name}
                         </p>
-                        <p className="truncate font-mono text-xs text-slate-500">
-                          {g.baseUrl}
-                        </p>
+                        <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-600 ring-1 ring-white/50">
+                          {transportLabel[s.transport]}
+                        </span>
                       </div>
+                      <p className="truncate font-mono text-xs text-slate-500">
+                        {s.baseUrl}
+                      </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="rounded-full bg-white/60 px-2 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-white/50">
-                        {g.endpoints.length} 接口
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-white/50 ${
-                          toolCount > 0
-                            ? "bg-violet-500/10 text-violet-600"
-                            : "bg-white/60 text-slate-500"
-                        }`}
-                      >
-                        {toolCount} 工具
-                      </span>
-                    </div>
-                  </button>
-                )
-              })
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="rounded-full bg-white/60 px-2 py-0.5 text-xs font-semibold text-slate-500 ring-1 ring-white/50">
+                      {s.tools?.length ?? 0} 工具
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-white/50 ${
+                        s.enabled !== false
+                          ? "bg-emerald-500/10 text-emerald-600"
+                          : "bg-white/60 text-slate-500"
+                      }`}
+                    >
+                      {s.enabled !== false ? "启用" : "停用"}
+                    </span>
+                  </div>
+                </button>
+              ))
             )}
           </div>
         </div>
@@ -202,37 +186,51 @@ export function Dashboard() {
               </span>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3">
-              <div>
-                <p className="text-xs font-medium text-slate-500">SSE 端点</p>
-                <div className="mt-1 flex items-center gap-2 rounded-lg border border-white/50 bg-white/50 px-3 py-2 backdrop-blur-sm">
-                  <span className="flex-1 truncate font-mono text-xs text-slate-900">
-                    {MCP_SSE_URL}
-                  </span>
-                  <button
-                    onClick={copySseUrl}
-                    title="复制 SSE 地址"
-                    className="flex size-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-white/60 hover:text-slate-900"
+            {servers.length === 0 && !loading ? (
+              <EmptyState
+                icon={<Radio className="size-6" />}
+                title="暂无 MCP 端点"
+                description="创建 MCP Server 后，这里会列出各服务的接入地址"
+                tone="bg-emerald-500/10 text-emerald-600"
+                action={
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={() => navigate("/mcp-servers")}
                   >
-                    {copied ? (
-                      <Check className="size-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="size-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500">消息端点</p>
-                <p className="mt-1 rounded-lg border border-white/50 bg-white/50 px-3 py-2 font-mono text-xs text-slate-900 backdrop-blur-sm">
-                  /mcp/messages?sessionId=…
+                    去创建
+                  </Button>
+                }
+              />
+            ) : (
+              <div className="mt-4 flex flex-col gap-3">
+                {servers.map((s) => {
+                  const url = buildMcpEndpointUrl(s)
+                  return (
+                    <div key={s.id ?? s.name}>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-medium text-slate-500">
+                          {s.name}
+                        </p>
+                        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-600 ring-1 ring-white/50">
+                          {transportLabel[s.transport]}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 rounded-lg border border-white/50 bg-white/50 px-3 py-2 backdrop-blur-sm">
+                        <span className="flex-1 truncate font-mono text-xs text-slate-900">
+                          {url}
+                        </span>
+                        <CopyButton text={url} title="复制接入地址" />
+                      </div>
+                    </div>
+                  )
+                })}
+                <p className="text-xs leading-relaxed text-slate-500">
+                  在 MCP 客户端（如 Claude Desktop、Cherry
+                  Studio）中以对应地址接入，即可调用该服务下的工具。
                 </p>
               </div>
-              <p className="text-xs leading-relaxed text-slate-500">
-                在 MCP 客户端（如 Claude Desktop、Cherry Studio）中以上述 SSE
-                地址接入，即可调用已配置的工具。
-              </p>
-            </div>
+            )}
           </div>
 
           {/* Quick actions */}
@@ -241,18 +239,18 @@ export function Dashboard() {
             <div className="mt-3 flex flex-col gap-1">
               {[
                 {
-                  to: "/protocol-config",
-                  icon: Upload,
+                  to: "/mcp-servers",
+                  icon: Server,
                   tone: "bg-blue-500/10 text-blue-600",
-                  label: "导入接口文档",
-                  desc: "OpenAPI / Swagger JSON",
+                  label: "新建 MCP 服务",
+                  desc: "聚合下游 REST 接口",
                 },
                 {
                   to: "/gateway-tools",
                   icon: Wrench,
                   tone: "bg-violet-500/10 text-violet-600",
                   label: "配置 MCP 工具",
-                  desc: "选择接口暴露为工具",
+                  desc: "手动新增或 OpenAPI 导入",
                 },
                 {
                   to: "/gateway-test",

@@ -1,4 +1,9 @@
-import type { ApiEndpoint, ApiGroup, ApiParameter } from "@/api/registry"
+import type {
+  GatewayTool,
+  ParamDataType,
+  ParamIn,
+  ToolParameter,
+} from "@/api/types"
 
 export interface ParsedOperation {
   key: string // `${METHOD}:${path}`
@@ -6,7 +11,7 @@ export interface ParsedOperation {
   path: string
   summary: string
   tags: string[]
-  endpoint: ApiEndpoint
+  tool: GatewayTool
 }
 
 export interface ParsedImport {
@@ -19,6 +24,7 @@ export interface ParsedImport {
 const HTTP_METHODS = ["get", "post", "put", "delete", "patch"] as const
 
 interface OpenApiSchema {
+  type?: string
   description?: string
   default?: unknown
   required?: string[]
@@ -30,6 +36,7 @@ interface OpenApiParameter {
   in?: string
   required?: boolean
   description?: string
+  type?: string // Swagger 2.0 非 body 参数的类型字段
   default?: unknown
   schema?: OpenApiSchema
 }
@@ -64,8 +71,12 @@ interface OpenApiDocument {
   paths?: Record<string, OpenApiPathItem>
 }
 
+/** 工具名清洗：非法字符替换为下划线，去掉首尾下划线，截断到 64 字符 */
 export function sanitizeName(raw: string): string {
-  const cleaned = raw.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/^_+|_+$/g, "")
+  const cleaned = raw
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64)
   return cleaned || "unnamed"
 }
 
@@ -75,29 +86,85 @@ function toDefaultString(value: unknown): string {
   return String(value)
 }
 
-function mapParameter(param: OpenApiParameter): ApiParameter | null {
-  let type: string
+/** dataType 推断：仅识别 integer/number/boolean，其余（array/object/缺失）一律 string */
+function inferDataType(type: string | undefined): ParamDataType {
+  switch (type) {
+    case "integer":
+    case "number":
+    case "boolean":
+      return type
+    default:
+      return "string"
+  }
+}
+
+function mapParameter(param: OpenApiParameter): ToolParameter | null {
+  let location: ParamIn
   switch (param.in) {
     case "path":
     case "query":
     case "header":
-    case "body":
-      type = param.in
+      location = param.in
       break
     case "formData":
-      type = "body"
+      location = "body"
       break
     default:
-      // "cookie" and unknown locations are not supported by the backend
+      // body 由 expandBodyParameter 处理；"cookie" 等位置后端不支持
       return null
   }
   return {
     name: param.name || "",
-    type,
+    in: location,
+    dataType: inferDataType(param.schema?.type ?? param.type),
     required: Boolean(param.required),
     description: param.description || "",
     defaultValue: toDefaultString(param.schema?.default ?? param.default ?? ""),
   }
+}
+
+/** 展开 object schema 的 properties 为一组 in='body' 参数 */
+function expandObjectProperties(
+  schema: OpenApiSchema,
+  fallbackRequired: boolean
+): ToolParameter[] {
+  const requiredList = schema.required || []
+  return Object.entries(schema.properties ?? {}).map(([name, prop]) => ({
+    name,
+    in: "body",
+    dataType: inferDataType(prop?.type),
+    // schema.required 数组为准；文档未声明时回退到参数级 required
+    required: requiredList.length > 0 ? requiredList.includes(name) : fallbackRequired,
+    description: prop?.description || "",
+    defaultValue: toDefaultString(prop?.default),
+  }))
+}
+
+/** Swagger 2.0 的 in='body' 参数：schema.properties 展开为 body 参数 */
+function expandBodyParameter(param: OpenApiParameter): ToolParameter[] {
+  if (!param.schema?.properties) {
+    // 无 object schema 时退化为单个 body 参数
+    return [
+      {
+        name: param.name || "body",
+        in: "body",
+        dataType: inferDataType(param.schema?.type),
+        required: Boolean(param.required),
+        description: param.description || "",
+        defaultValue: toDefaultString(param.default ?? param.schema?.default),
+      },
+    ]
+  }
+  return expandObjectProperties(param.schema, Boolean(param.required))
+}
+
+/** OAS3 requestBody（application/json，schema.type=object）：properties 展开为 body 参数 */
+function mapRequestBody(
+  requestBody: OpenApiRequestBody | undefined
+): ToolParameter[] {
+  const schema = requestBody?.content?.["application/json"]?.schema
+  if (!schema?.properties) return []
+  return expandObjectProperties(schema, Boolean(requestBody?.required))
 }
 
 function mergeParameters(
@@ -114,20 +181,6 @@ function mergeParameters(
   return Array.from(merged.values())
 }
 
-function mapRequestBody(requestBody: OpenApiRequestBody | undefined): ApiParameter[] {
-  const schema = requestBody?.content?.["application/json"]?.schema
-  if (!schema?.properties) return []
-  const requiredList =
-    requestBody?.required === false ? [] : schema.required || []
-  return Object.entries(schema.properties).map(([name, prop]) => ({
-    name,
-    type: "body",
-    required: requiredList.includes(name),
-    description: prop?.description || "",
-    defaultValue: toDefaultString(prop?.default),
-  }))
-}
-
 function buildOperation(
   path: string,
   method: string,
@@ -135,12 +188,19 @@ function buildOperation(
   pathItem: OpenApiPathItem,
   isV3: boolean
 ): ParsedOperation {
-  const parameters = mergeParameters(pathItem.parameters, operation.parameters)
-    .map(mapParameter)
-    .filter((p): p is ApiParameter => p !== null)
+  const parameters: ToolParameter[] = []
+  for (const param of mergeParameters(pathItem.parameters, operation.parameters)) {
+    if (param.in === "body") {
+      parameters.push(...expandBodyParameter(param))
+    } else {
+      const mapped = mapParameter(param)
+      if (mapped) parameters.push(mapped)
+    }
+  }
   if (isV3) {
     parameters.push(...mapRequestBody(operation.requestBody))
   }
+  // 工具名：优先 operationId，缺失时用 method+path（如 get_users_by_id）
   const rawName = operation.operationId || `${method.toLowerCase()}_${path}`
   return {
     key: `${method.toUpperCase()}:${path}`,
@@ -148,11 +208,12 @@ function buildOperation(
     path,
     summary: operation.summary || "",
     tags: operation.tags || [],
-    endpoint: {
+    tool: {
       name: sanitizeName(rawName),
       method: method.toUpperCase(),
       path,
-      description: operation.summary || operation.description || "",
+      description: operation.summary || operation.operationId || "",
+      enabled: true,
       parameters,
     },
   }
@@ -170,6 +231,7 @@ export function parseOpenApiDocument(json: unknown): ParsedImport {
     throw new Error("Invalid OpenAPI document: missing paths")
   }
 
+  // baseUrl 解析保留在此（导入流程不再使用，server 由用户先选好）
   const baseUrl = isV2
     ? `${doc.schemes?.[0] || "http"}://${doc.host || "localhost"}${doc.basePath || ""}`
     : doc.servers?.[0]?.url || "http://localhost"
@@ -194,26 +256,16 @@ export function parseOpenApiDocument(json: unknown): ParsedImport {
   }
 }
 
-export function buildDraftGroup(
+/** 按勾选的 operation 构建待批量创建的 GatewayTool[] */
+export function buildTools(
   parsed: ParsedImport,
-  selectedKeys: string[],
-  groupName?: string
-): ApiGroup {
+  selectedKeys: string[]
+): GatewayTool[] {
   const selected = new Set(selectedKeys)
-  const customName = groupName ? sanitizeName(groupName) : ""
-  return {
-    name:
-      customName && customName !== "unnamed"
-        ? customName
-        : sanitizeName(parsed.docTitle || "imported"),
-    baseUrl: parsed.baseUrl,
-    description:
-      parsed.docDescription || `Imported from ${parsed.docTitle || "OpenAPI"}`,
-    endpoints: parsed.operations
-      .filter((op) => selected.has(op.key))
-      .map((op) => ({
-        ...op.endpoint,
-        parameters: op.endpoint.parameters.map((p) => ({ ...p })),
-      })),
-  }
+  return parsed.operations
+    .filter((op) => selected.has(op.key))
+    .map((op) => ({
+      ...op.tool,
+      parameters: op.tool.parameters.map((p) => ({ ...p })),
+    }))
 }

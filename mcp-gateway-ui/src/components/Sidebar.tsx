@@ -1,9 +1,8 @@
 import { NavLink, useLocation } from "react-router-dom"
 import {
   LayoutGrid,
-  Library,
+  Server,
   Wrench,
-  Shield,
   FlaskConical,
   Globe,
 } from "lucide-react"
@@ -17,9 +16,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "工作台", path: "/dashboard", icon: <LayoutGrid className="size-[18px]" /> },
-  { label: "接口库", path: "/protocol-config", icon: <Library className="size-[18px]" /> },
+  { label: "MCP 服务", path: "/mcp-servers", icon: <Server className="size-[18px]" /> },
   { label: "MCP 工具", path: "/gateway-tools", icon: <Wrench className="size-[18px]" /> },
-  { label: "权限配置", path: "/auth-config", icon: <Shield className="size-[18px]" /> },
   { label: "网关测试", path: "/gateway-test", icon: <FlaskConical className="size-[18px]" /> },
 ]
 
@@ -59,8 +57,8 @@ export function Sidebar() {
               className={cn(
                 "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200",
                 isActive
-                  ? "bg-white/80 text-blue-600 shadow-[0_4px_16px_rgba(37,99,235,0.15)] ring-1 ring-white/60 backdrop-blur-md"
-                  : "text-slate-500 hover:bg-white/50 hover:text-slate-900 hover:backdrop-blur-sm",
+                  ? "bg-blue-500/10 text-blue-600 shadow-[inset_3px_0_0_#2563eb,0_4px_16px_rgba(37,99,235,0.12)] ring-1 ring-blue-500/20"
+                  : "text-slate-500 hover:bg-white/50 hover:text-slate-900",
               )}
             >
               {item.icon}
@@ -71,7 +69,7 @@ export function Sidebar() {
       </nav>
 
       {/* MCP server status */}
-      <div className="mx-2 rounded-xl bg-white/50 p-3 shadow-[0_4px_12px_-6px_rgba(16,24,40,0.08)] backdrop-blur-md">
+      <div className="mx-2 rounded-xl bg-white/50 p-3 shadow-[0_4px_12px_-6px_rgba(16,24,40,0.08)] ring-1 ring-white/50">
         <div className="flex items-center gap-2">
           <span className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
@@ -82,7 +80,7 @@ export function Sidebar() {
           </span>
         </div>
         <p className="mt-1.5 truncate font-mono text-[10px] leading-relaxed text-slate-500">
-          :8082/mcp/sse
+          {":8082/mcp/{name}"}
         </p>
       </div>
     </aside>

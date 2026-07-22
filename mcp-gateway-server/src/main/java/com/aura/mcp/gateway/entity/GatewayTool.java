@@ -11,18 +11,22 @@ import org.hibernate.annotations.ColumnDefault;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A single MCP tool backed by a REST endpoint of the owning server's downstream API.
+ */
 @Entity
-@Table(name = "api_endpoint")
+@Table(name = "gateway_tool")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApiEndpoint {
+public class GatewayTool {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** MCP tool name, unique within the owning server. ^[a-zA-Z0-9_-]{1,64}$ */
     @Column(nullable = false)
     private String name;
 
@@ -35,18 +39,18 @@ public class ApiEndpoint {
     @Column(length = 2000)
     private String description;
 
-    /** Whether this endpoint is exposed as an MCP tool. */
+    /** Whether this tool is exposed via MCP. */
     @Column(nullable = false)
-    @ColumnDefault("false")
-    private boolean enabled = false;
+    @ColumnDefault("true")
+    private boolean enabled = true;
 
     @ElementCollection
-    @CollectionTable(name = "api_endpoint_parameter", joinColumns = @JoinColumn(name = "endpoint_id"))
+    @CollectionTable(name = "gateway_tool_parameter", joinColumns = @JoinColumn(name = "tool_id"))
     @Builder.Default
-    private List<ApiParameter> parameters = new ArrayList<>();
+    private List<ToolParameter> parameters = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id")
+    @JoinColumn(name = "server_id")
     @JsonIgnore
-    private ApiGroup group;
+    private McpServerEntity server;
 }

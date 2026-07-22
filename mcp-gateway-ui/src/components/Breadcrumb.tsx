@@ -12,13 +12,9 @@ const routeCrumbs: Record<string, Crumb[]> = {
     { label: "网关配置", path: "/gateway-tools" },
     { label: "MCP 工具", path: "/gateway-tools" },
   ],
-  "/protocol-config": [
+  "/mcp-servers": [
     { label: "网关配置", path: "/gateway-tools" },
-    { label: "接口库", path: "/protocol-config" },
-  ],
-  "/auth-config": [
-    { label: "网关配置", path: "/gateway-tools" },
-    { label: "权限配置", path: "/auth-config" },
+    { label: "MCP 服务", path: "/mcp-servers" },
   ],
   "/gateway-test": [{ label: "网关测试", path: "/gateway-test" }],
 }

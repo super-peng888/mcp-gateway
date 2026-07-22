@@ -8,7 +8,7 @@
 
 - **轻盈通透**：通过半透明与背景模糊，让界面元素仿佛浮于彩色背景之上。
 - **层次纵深**：利用阴影、高光、模糊半径构建前后景关系，而非依赖纯色块。
-- **动态氛围**：背景采用缓慢流动的多色渐变与光斑，赋予界面生命感。
+- **动态氛围**：背景采用缓慢流动的多色渐变与漂移光斑，赋予界面生命感。
 - **克制色彩**：以白色/浅灰为基底，用低饱和彩色点缀功能与状态。
 
 ---
@@ -19,7 +19,7 @@
 - **组件库**：Ant Design v6（主题 token 深度定制）
 - **字体**：Inter Variable
 - **图标**：Lucide React
-- **关键 CSS 特性**：`backdrop-filter`、`rgba()` 透明色、`inset` 高光阴影、CSS 动画
+- **关键 CSS 特性**：`backdrop-filter`、`rgba()` 透明色、`inset` 定向受光描边、SVG 噪点纹理、CSS 动画
 
 ---
 
@@ -52,14 +52,14 @@ body {
 
 ### 装饰光斑
 
-在页面根节点放置 4 个固定定位的模糊圆形，增强氛围：
+在页面根节点放置 4 个固定定位的模糊圆形，缓慢漂移增强氛围（动画类见「动画规范」）：
 
 ```tsx
 <div className="pointer-events-none fixed inset-0 overflow-hidden">
-  <div className="absolute -left-40 -top-40 size-[520px] rounded-full bg-blue-400/30 blur-[100px]" />
-  <div className="absolute -right-40 top-1/4 size-[480px] rounded-full bg-violet-400/25 blur-[100px]" />
-  <div className="absolute -bottom-40 left-1/3 size-[460px] rounded-full bg-cyan-300/20 blur-[100px]" />
-  <div className="absolute bottom-1/4 right-1/4 size-96 rounded-full bg-rose-300/15 blur-[100px]" />
+  <div className="animate-orb-a absolute -left-40 -top-40 size-[520px] rounded-full bg-blue-400/30 blur-[100px]" />
+  <div className="animate-orb-b absolute -right-40 top-1/4 size-[480px] rounded-full bg-violet-400/25 blur-[100px]" />
+  <div className="animate-orb-c absolute -bottom-40 left-1/3 size-[460px] rounded-full bg-cyan-300/20 blur-[100px]" />
+  <div className="animate-orb-d absolute bottom-1/4 right-1/4 size-96 rounded-full bg-rose-300/15 blur-[100px]" />
 </div>
 ```
 
@@ -88,20 +88,18 @@ body {
 
 ### 基础玻璃卡片
 
-白色低透明对角渐变 + 大模糊，让背景光晕透出来。四边统一 1px 白色 30% 边框；轮廓感来自贴边阴影 + 收紧的扩散阴影（收缩量 ≥ 模糊半径一半，水平零溢出，圆角外无阴影，只向正下方投射）与玻璃和背景的明度差；顶部一道细受光。
+白色低透明对角渐变 + 大模糊，让背景光晕透出来；表面叠 3% 灰度噪点（`--glass-noise`）掩盖大模糊渐变的色带。描边不用 `border`，改用贴合圆角的 inset 定向受光模型：顶部一道细受光、两侧微光收边、底部一道折射暗线让玻璃“落地”；轮廓感来自贴边阴影 + 收紧的扩散阴影（收缩量 ≥ 模糊半径一半，水平零溢出，圆角外无阴影，只向正下方投射）与玻璃和背景的明度差。
 
 ```css
 .glass {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.45) 100%);
+  background-image: var(--glass-noise),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.45) 100%);
   backdrop-filter: blur(36px) saturate(200%);
   -webkit-backdrop-filter: blur(36px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow:
-    /* 贴边层勾轮廓 + 扩散层只向正下方投射（圆角外无阴影） */
-    0 2px 4px -1px rgba(16, 24, 40, 0.06),
-    0 10px 24px -12px rgba(16, 24, 40, 0.1),
-    /* 仅顶部一道细受光，保持边缘干净 */
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    var(--shadow-glass),      /* 贴边层勾轮廓 + 扩散层只向正下方投射 */
+    var(--glass-highlight),   /* 顶部一道细受光 */
+    var(--glass-edge);        /* 两侧微光 + 底部折射暗线 */
 }
 ```
 
@@ -115,17 +113,23 @@ body {
 | 超重玻璃 | `.glass-xl` | 74% → 58% | 48px | 全局遮罩层 |
 | 栏位玻璃 | `.glass-bar` | 55% 纯白 | 28px | 侧边栏、顶栏、面包屑（栏位自身描边方向各异，边框在 JSX 中单独声明） |
 
-> 所有层级均无边框、无侧边/底边效果；质感靠大模糊 +  saturate 提升呈现磨砂感；hover 只加深投影并上浮 1px。
+> 所有层级均无 `border`，边缘由 `--glass-highlight` + `--glass-edge` 的 inset 定向受光呈现；表面统一叠 `--glass-noise` 噪点；hover 只加深投影并上浮 1px。
 
 ### 彩色玻璃
 
-用于区分功能模块的彩色玻璃变体（无边框）：
+用于区分功能模块的彩色玻璃变体，结构与 `.glass` 相同，仅渐变色不同：
 
 ```css
-.glass-blue   { background: linear-gradient(135deg, rgba(239,246,255,0.6), rgba(239,246,255,0.42)); }
-.glass-violet { background: linear-gradient(135deg, rgba(245,243,255,0.6), rgba(245,243,255,0.42)); }
-.glass-green  { background: linear-gradient(135deg, rgba(236,253,245,0.6), rgba(236,253,245,0.42)); }
-.glass-amber  { background: linear-gradient(135deg, rgba(255,251,235,0.6), rgba(255,251,235,0.42)); }
+.glass-blue {
+  background-image: var(--glass-noise),
+    linear-gradient(135deg, rgba(239, 246, 255, 0.65) 0%, rgba(239, 246, 255, 0.48) 100%);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  box-shadow: var(--shadow-glass), var(--glass-highlight), var(--glass-edge);
+}
+/* .glass-violet → rgba(245, 243, 255, …)
+   .glass-green  → rgba(236, 253, 245, …)
+   .glass-amber  → rgba(255, 251, 235, …) */
 ```
 
 ### 玻璃 hover 效果
@@ -135,7 +139,7 @@ body {
   transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 .glass-hover:hover {
-  box-shadow: var(--shadow-glass-lg);
+  box-shadow: var(--shadow-glass-lg), var(--glass-highlight-strong), var(--glass-edge);
   transform: translateY(-1px);
 }
 ```
@@ -179,14 +183,14 @@ body {
     </div>
   </div>
 
-  {/* 导航 */}
+  {/* 导航：激活态为蓝色玻璃 tint + 左侧 3px 指示条 */}
   <nav className="flex flex-1 flex-col gap-1 pt-4">
     {items.map(item => (
       <NavLink
         className={cn(
-          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all",
+          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200",
           isActive
-            ? "bg-white/80 text-blue-600 shadow-[0_4px_16px_rgba(37,99,235,0.15)] ring-1 ring-white/60 backdrop-blur-md"
+            ? "bg-blue-500/10 text-blue-600 shadow-[inset_3px_0_0_#2563eb,0_4px_16px_rgba(37,99,235,0.12)] ring-1 ring-blue-500/20"
             : "text-slate-500 hover:bg-white/50 hover:text-slate-900"
         )}
       >
@@ -220,7 +224,7 @@ body {
 ### 统计卡片
 
 ```tsx
-<div className="flex items-center justify-between rounded-2xl border border-white/50 bg-white/60 p-5 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl transition-all hover:shadow-[0_12px_40px_rgba(16,24,40,0.12)] hover:-translate-y-0.5">
+<div className="glass glass-hover flex items-center justify-between rounded-2xl p-5">
   <div>
     <p className="text-sm font-medium text-slate-500">接口分组</p>
     <p className="mt-1 text-2xl font-bold text-slate-900">12</p>
@@ -234,7 +238,7 @@ body {
 ### 数据表格
 
 ```tsx
-<div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/50 bg-white/60 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl">
+<div className="glass flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
   {/* 搜索区 */}
   <div className="shrink-0 border-b border-white/40 px-4 py-3">
     <SearchForm ... />
@@ -246,8 +250,8 @@ body {
       <Button type="primary">新增</Button>
     </div>
   </div>
-  {/* 表格 */}
-  <div className="data-table min-h-0 flex-1 overflow-hidden px-4">
+  {/* 表格：与容器同宽，首尾列自身 padding 保持 16px 内缩 */}
+  <div className="data-table min-h-0 flex-1 overflow-hidden">
     <Table ... />
   </div>
 </div>
@@ -260,14 +264,14 @@ body {
   background: transparent !important;
 }
 .data-table .ant-table-thead > tr > th {
-  background: rgba(248, 250, 252, 0.6) !important;
-  backdrop-filter: blur(12px);
+  background: transparent !important;
   border-bottom: 1px solid rgba(226, 232, 240, 0.6) !important;
-  color: #64748b !important;
+  color: #475569 !important;
   font-weight: 600 !important;
   font-size: 12px !important;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  padding: 12px 16px !important;
 }
 .data-table .ant-table-tbody > tr > td {
   border-bottom: 1px solid rgba(238, 241, 246, 0.6) !important;
@@ -275,6 +279,22 @@ body {
 }
 .data-table .ant-table-tbody > tr:hover > td {
   background: rgba(37, 99, 235, 0.05) !important;
+}
+
+/* 分页器：容器去 padding 后保持 16px 内缩 */
+.data-table .ant-table-pagination {
+  padding-inline: 16px;
+}
+
+/* 隐藏表格滚动条（保留滚动能力） */
+.data-table .ant-table-body,
+.data-table .ant-table-content {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.data-table .ant-table-body::-webkit-scrollbar,
+.data-table .ant-table-content::-webkit-scrollbar {
+  display: none;
 }
 ```
 
@@ -290,8 +310,8 @@ body {
 .ant-modal-content {
   background: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(24px) saturate(200%);
-  border-radius: 12px !important;
-  box-shadow: 0 24px 64px rgba(16, 24, 40, 0.16) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-glass-xl), var(--glass-highlight-strong) !important;
   border: 1px solid rgba(255, 255, 255, 0.6);
 }
 ```
@@ -323,7 +343,7 @@ body {
 ### 快捷操作列表
 
 ```tsx
-<div className="rounded-2xl border border-white/50 bg-white/60 p-5 shadow-[0_8px_32px_rgba(16,24,40,0.08)] backdrop-blur-xl">
+<div className="glass rounded-2xl p-5">
   <h3 className="text-base font-semibold text-slate-900">快捷操作</h3>
   <div className="mt-3 flex flex-col gap-1">
     <NavLink className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-all hover:bg-white/50">
@@ -356,21 +376,31 @@ import { ConfigProvider } from "antd"
       colorBgContainer: "#ffffff",
       colorBorder: "#d5dbe7",
       colorBorderSecondary: "#e3e7ef",
-      colorText: "#0f172a",
-      colorTextSecondary: "#64748b",
-      colorBgLayout: "#f0f4f8",
+      colorText: "#111827",
+      colorTextSecondary: "#6b7280",
+      colorBgLayout: "#f5f7fa",
+      boxShadow:
+        "0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04)",
+      boxShadowSecondary:
+        "0 12px 32px rgba(16, 24, 40, 0.12), 0 4px 8px rgba(16, 24, 40, 0.04)",
     },
     components: {
       Table: {
-        headerBg: "rgba(248, 250, 252, 0.6)",
-        headerColor: "#64748b",
-        headerSplitColor: "rgba(226, 232, 240, 0.6)",
-        rowHoverBg: "rgba(37, 99, 235, 0.05)",
+        headerBg: "#f8fafc",
+        headerColor: "#6b7280",
+        headerSplitColor: "#e3e7ef",
+        rowHoverBg: "rgba(37, 99, 235, 0.04)",
         rowSelectedBg: "rgba(37, 99, 235, 0.08)",
-        borderColor: "rgba(238, 241, 246, 0.6)",
+        borderColor: "#eef1f6",
       },
       Modal: {
         borderRadiusLG: 12,
+        boxShadow:
+          "0 12px 32px rgba(16, 24, 40, 0.12), 0 4px 8px rgba(16, 24, 40, 0.04)",
+      },
+      Select: {
+        optionSelectedBg: "#dbeafe",
+        optionActiveBg: "rgba(37, 99, 235, 0.08)",
       },
       Button: {
         borderRadius: 8,
@@ -379,12 +409,17 @@ import { ConfigProvider } from "antd"
       Input: {
         borderRadius: 8,
       },
+      Tag: {
+        borderRadiusSM: 999,
+      },
     },
   }}
 >
   <App />
 </ConfigProvider>
 ```
+
+> 表格、弹窗等组件的透明化与玻璃化由 `index.css` 中的覆盖样式完成（优先级高于 token），token 只负责基础色与圆角。
 
 ---
 
@@ -397,6 +432,33 @@ import { ConfigProvider } from "antd"
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
+}
+```
+
+### 光斑漂移
+
+四个光斑各配一组 44~62s 的缓慢位移动画，让玻璃透出的光晕随时间变化：
+
+```css
+@keyframes orb-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(64px, 40px, 0) scale(1.08); }
+}
+/* orb-drift-b / c / d 方向与时长各异 */
+
+.animate-orb-a { animation: orb-drift-a 44s ease-in-out infinite; }
+```
+
+### Reduced motion
+
+`prefers-reduced-motion: reduce` 时关闭背景渐变、光斑漂移与卡片浮动反馈：
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  body { animation: none; }
+  .animate-orb-a, .animate-orb-b, .animate-orb-c, .animate-orb-d { animation: none; }
+  .glass-hover { transition: none; }
+  .glass-hover:hover { transform: none; }
 }
 ```
 
@@ -426,9 +488,11 @@ transition: all 0.2s ease;
 
 ## 使用检查清单
 
-- [ ] 页面背景使用动态渐变 + 装饰光斑
-- [ ] 所有卡片使用 `.glass` 或等效 Tailwind 类
-- [ ] 弹窗/下拉使用 `.glass-lg` 或等效
+- [ ] 页面背景使用动态渐变 + 漂移光斑
+- [ ] 卡片使用 `.glass` 等工具类（描边、噪点、投影已内置，勿再叠加 `border` / `backdrop-blur`）
+- [ ] 侧边栏 / 顶栏 / 面包屑统一使用 `.glass-bar`
+- [ ] 弹窗 / 下拉使用 `.glass-lg` 或等效
+- [ ] 玻璃容器内的次级元素只用半透明白 + `ring`，不嵌套 `backdrop-blur`
 - [ ] 按钮、输入框、表格背景透明，依赖玻璃容器
 - [ ] 图标背景使用 `bg-{color}-500/10` + `ring-1 ring-white/50`
 - [ ] 徽章使用 `bg-{color}-500/10` + `border-{color}-500/20`
@@ -441,7 +505,7 @@ transition: all 0.2s ease;
 
 ```
 src/
-├── index.css                 # 设计 token、玻璃工具类、antd 覆盖
+├── index.css                 # 设计 token、玻璃工具类、antd 覆盖、动画
 ├── main.tsx                  # ConfigProvider 主题配置
 ├── App.tsx                   # 页面背景光斑、布局
 ├── components/

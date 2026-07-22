@@ -1,16 +1,20 @@
 package com.aura.mcp.gateway.dto;
 
-/**
- * Read view of an endpoint that is currently exposed as an MCP tool.
- */
+import com.aura.mcp.gateway.entity.ToolParameter;
+
+import java.util.List;
+
+/** A tool with its owning server's context, for cross-server listing pages. */
 public record ToolView(
-        Long endpointId,
-        String toolName,
-        String endpointName,
+        Long id,
+        Long serverId,
+        String serverName,
+        String serverTransport,
+        boolean serverEnabled,
+        String name,
+        String description,
         String method,
         String path,
-        String description,
-        Long groupId,
-        String groupName,
-        String baseUrl) {
+        boolean enabled,
+        List<ToolParameter> parameters) {
 }

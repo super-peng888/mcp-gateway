@@ -1,8 +1,8 @@
-import { useMemo, useState, type Key } from "react"
+import { useEffect, useMemo, useState, type Key } from "react"
+import axios from "axios"
 import { AlertCircle, FileJson, Loader2, Upload } from "lucide-react"
-import { Table } from "antd"
+import { Button, Select, Table } from "antd"
 import type { TableRowSelection } from "antd/es/table/interface"
-import { Button, Input } from "antd"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
@@ -12,34 +12,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { ApiGroup } from "@/api/registry"
+import { listServers } from "@/api/servers"
+import { createToolsBatch } from "@/api/tools"
+import type { McpServer } from "@/api/types"
 import {
-  buildDraftGroup,
+  buildTools,
   parseOpenApiDocument,
-  sanitizeName,
   type ParsedImport,
   type ParsedOperation,
 } from "./openapi-parser"
-import { methodBadgeVariant } from "./protocol-config.data"
+import { methodBadgeVariant } from "./gateway-tools.data"
 
-interface ProtocolImportDialogProps {
+interface ToolImportDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onImport: (group: ApiGroup) => void
+  onSuccess: () => void
 }
 
-export function ProtocolImportDialog({
+export function ToolImportDialog({
   open,
   onOpenChange,
-  onImport,
-}: ProtocolImportDialogProps) {
+  onSuccess,
+}: ToolImportDialogProps) {
+  const [servers, setServers] = useState<McpServer[]>([])
+  const [serversError, setServersError] = useState(false)
+  const [serverId, setServerId] = useState<number | undefined>(undefined)
   const [parsed, setParsed] = useState<ParsedImport | null>(null)
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([])
   const [filter, setFilter] = useState("")
-  const [groupName, setGroupName] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    listServers()
+      .then((res) => {
+        if (!cancelled) setServers(res.data)
+      })
+      .catch(() => {
+        if (!cancelled) setServersError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const operations = useMemo(() => parsed?.operations ?? [], [parsed])
 
@@ -50,7 +69,6 @@ export function ProtocolImportDialog({
     setError(null)
     setSelectedKeys([])
     setFilter("")
-    setGroupName("")
     setFileName(file.name)
     const reader = new FileReader()
     reader.onload = () => {
@@ -58,7 +76,6 @@ export function ProtocolImportDialog({
         const json = JSON.parse(String(reader.result))
         const doc = parseOpenApiDocument(json)
         setParsed(doc)
-        setGroupName(sanitizeName(doc.docTitle || "imported"))
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to parse JSON file"
@@ -97,10 +114,26 @@ export function ProtocolImportDialog({
   const selectAllFiltered = () =>
     setSelectedKeys(filteredOperations.map((op) => op.key))
 
-  const handleImport = () => {
-    if (!parsed || selectedKeys.length === 0 || !groupName.trim()) return
-    onImport(buildDraftGroup(parsed, selectedKeys.map(String), groupName))
-    onOpenChange(false)
+  const handleImport = async () => {
+    if (!parsed || selectedKeys.length === 0 || serverId == null) return
+    const tools = buildTools(parsed, selectedKeys.map(String))
+    setSubmitting(true)
+    try {
+      await createToolsBatch(serverId, tools)
+      alert(`成功导入 ${tools.length} 个工具`)
+      onSuccess()
+      onOpenChange(false)
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        alert(
+          "导入失败：存在与现有工具同名的工具（任一冲突则整批失败），请调整选择后重试"
+        )
+      } else {
+        alert("导入失败，后端服务可能不可用")
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const hasOperations = operations.length > 0
@@ -111,17 +144,34 @@ export function ProtocolImportDialog({
         <DialogHeader className="shrink-0 px-5 pt-3 pb-2">
           <div className="flex items-center gap-2">
             <FileJson className="size-5 text-primary" />
-            <DialogTitle>Import from OpenAPI</DialogTitle>
+            <DialogTitle>从 OpenAPI 导入工具</DialogTitle>
           </div>
           <DialogDescription>
             {hasOperations && parsed
-              ? `${parsed.docTitle || "OpenAPI document"} · ${operations.length} operation(s) · ${parsed.baseUrl}`
-              : "Select a Swagger / OpenAPI JSON file to import endpoints"}
+              ? `${parsed.docTitle || "OpenAPI document"} · ${operations.length} operation(s)`
+              : "选择目标 Server 和本地 Swagger / OpenAPI JSON 文件，勾选要导入的接口"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="shrink-0 border-y border-border bg-surface-container-low/40 px-5 py-3">
           <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-[13px] font-medium text-on-surface">
+                目标 Server
+              </span>
+              <Select
+                value={serverId}
+                options={servers
+                  .filter((s) => s.id != null)
+                  .map((s) => ({ value: s.id as number, label: s.name }))}
+                onChange={(v) => setServerId(v)}
+                placeholder={
+                  serversError ? "Server 列表加载失败" : "选择 Server"
+                }
+                status={serversError ? "error" : ""}
+                className="w-56"
+              />
+            </div>
             <label className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm text-on-surface shadow-sm transition-colors hover:bg-surface-container-high">
               <Upload className="size-4" />
               <span className="max-w-[12rem] truncate">
@@ -136,18 +186,6 @@ export function ProtocolImportDialog({
             </label>
             {hasOperations && (
               <>
-                <div className="flex items-center gap-2">
-                  <span className="shrink-0 text-[13px] font-medium text-on-surface">
-                    分组名称
-                  </span>
-                  <Input
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    placeholder="必填，将作为 MCP 工具名前缀"
-                    status={groupName.trim() ? "" : "error"}
-                    className="w-56"
-                  />
-                </div>
                 <input
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
@@ -238,6 +276,15 @@ export function ProtocolImportDialog({
                   ),
                 },
                 {
+                  title: "Tool Name",
+                  key: "toolName",
+                  render: (_, op) => (
+                    <span className="font-mono text-[12px] text-primary">
+                      {op.tool.name}
+                    </span>
+                  ),
+                },
+                {
                   title: "Summary",
                   dataIndex: "summary",
                   ellipsis: true,
@@ -272,12 +319,16 @@ export function ProtocolImportDialog({
           <Button
             type="primary"
             disabled={
-              selectedKeys.length === 0 || parsing || !groupName.trim()
+              selectedKeys.length === 0 ||
+              parsing ||
+              submitting ||
+              serverId == null
             }
             onClick={handleImport}
           >
-            Import{" "}
-            {selectedKeys.length > 0 ? `(${selectedKeys.length})` : ""}
+            {submitting
+              ? "Importing..."
+              : `Import ${selectedKeys.length > 0 ? `(${selectedKeys.length})` : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

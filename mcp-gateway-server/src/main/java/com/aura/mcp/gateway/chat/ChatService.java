@@ -1,10 +1,10 @@
 package com.aura.mcp.gateway.chat;
 
-import com.aura.mcp.gateway.entity.ApiEndpoint;
-import com.aura.mcp.gateway.entity.ApiGroup;
+import com.aura.mcp.gateway.entity.GatewayTool;
+import com.aura.mcp.gateway.entity.McpServerEntity;
 import com.aura.mcp.gateway.mcp.ToolSchemaMapper;
-import com.aura.mcp.gateway.service.ApiRegistryService;
-import com.aura.mcp.gateway.service.RestApiExecutor;
+import com.aura.mcp.gateway.service.GatewayToolInvoker;
+import com.aura.mcp.gateway.service.McpServerService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * Chat service for the gateway test page. Exposes the enabled gateway tools to the
  * LLM as function callbacks and lets Spring AI run the tool-calling loop in-process
- * (same registry + executor the MCP server uses, without an SSE loopback).
+ * (same registry + invoker the MCP servers use, without an MCP loopback).
  */
 @Slf4j
 @Service
@@ -41,8 +41,8 @@ public class ChatService {
     private static final int MAX_HISTORY = 20;
 
     private final ObjectProvider<ChatClient> chatClientProvider;
-    private final ApiRegistryService registryService;
-    private final RestApiExecutor restApiExecutor;
+    private final McpServerService serverService;
+    private final GatewayToolInvoker toolInvoker;
     private final ObjectMapper objectMapper;
 
     public String chat(String userMessage, List<HistoryMessage> history) {
@@ -74,11 +74,14 @@ public class ChatService {
 
     private List<ToolCallback> buildToolCallbacks() {
         List<ToolCallback> callbacks = new ArrayList<>();
-        for (ApiGroup group : registryService.findAllInitialized()) {
-            for (ApiEndpoint endpoint : group.getEndpoints()) {
-                if (endpoint.isEnabled()) {
-                    callbacks.add(new GatewayToolCallback(group, endpoint,
-                            registryService.buildToolName(group, endpoint)));
+        for (McpServerEntity server : serverService.findAllInitialized()) {
+            if (!server.isEnabled()) {
+                continue;
+            }
+            for (GatewayTool tool : server.getTools()) {
+                if (tool.isEnabled()) {
+                    // Prefixed to keep names unique across servers inside the single chat session.
+                    callbacks.add(new GatewayToolCallback(tool, server.getName() + "_" + tool.getName()));
                 }
             }
         }
@@ -87,13 +90,11 @@ public class ChatService {
 
     private class GatewayToolCallback implements ToolCallback {
 
-        private final ApiGroup group;
-        private final ApiEndpoint endpoint;
+        private final GatewayTool tool;
         private final String toolName;
 
-        GatewayToolCallback(ApiGroup group, ApiEndpoint endpoint, String toolName) {
-            this.group = group;
-            this.endpoint = endpoint;
+        GatewayToolCallback(GatewayTool tool, String toolName) {
+            this.tool = tool;
             this.toolName = toolName;
         }
 
@@ -102,9 +103,9 @@ public class ChatService {
             try {
                 return ToolDefinition.builder()
                         .name(toolName)
-                        .description(ToolSchemaMapper.toolDescription(group, endpoint))
+                        .description(ToolSchemaMapper.toolDescription(tool))
                         .inputSchema(objectMapper.writeValueAsString(
-                                ToolSchemaMapper.buildInputSchema(endpoint)))
+                                ToolSchemaMapper.buildInputSchema(tool)))
                         .build();
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to build tool definition: " + toolName, e);
@@ -118,7 +119,7 @@ public class ChatService {
                         ? Map.of()
                         : objectMapper.readValue(toolInput, new TypeReference<>() {
                         });
-                return restApiExecutor.execute(group, endpoint, args);
+                return toolInvoker.invoke(tool.getId(), args);
             } catch (Exception e) {
                 log.error("Tool execution failed: {}", toolName, e);
                 return "Execution failed: " + e.getMessage();

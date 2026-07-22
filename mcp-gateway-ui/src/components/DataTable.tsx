@@ -291,7 +291,7 @@ export function DataTable<T extends object>({
 
           <div
             ref={tableWrapperRef}
-            className="data-table min-h-0 flex-1 overflow-hidden px-4"
+            className="data-table min-h-0 flex-1 overflow-hidden"
           >
             <Table<T>
               columns={bindValues.columns}
